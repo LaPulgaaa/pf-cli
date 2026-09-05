@@ -19,28 +19,82 @@ cargo install --path .
 
 ## Authentication
 
-Mint a key at **Settings > API Keys** in your Passionfroot dashboard and export
-it:
+Mint a key at **Settings > API Keys** in your dashboard, then save it once:
 
 ```sh
-export PASSIONFROOT_API_TOKEN=pf_live_...   # or PF_API_TOKEN
+$ pf auth login
+Paste your Passionfroot API key: ********
+✓ Saved the default credentials to ~/.config/pf/config.toml
 ```
 
-`pf` reads the token only from the environment. There is no `--token` flag, on
-purpose: a secret in `argv` ends up in shell history and in `ps` output.
+The key is verified against the API before it is written, so a mistyped key
+fails here rather than on your next command. The file is created `0600`, and
+`pf` warns if it later finds it readable by anyone else.
 
 ```
 $ pf auth status
 ✓ https://workspace.passionfroot.me/api/v1
-  token pf_live_…8fa2 (env PASSIONFROOT_API_TOKEN)
+  token pf_live_…8fa2 (from config file)
   32 labels readable
 ```
+
+`pf auth logout` removes it. `pf auth token` prints it, for handing to
+something else:
+
+```sh
+curl -H "Authorization: Bearer $(pf auth token)" https://workspace.passionfroot.me/api/v1/labels
+```
+
+### Supplying a token per command
+
+Four sources, highest precedence first:
+
+| | |
+|---|---|
+| `--token <TOKEN>` | convenient, but lands in shell history and is visible to `ps` while it runs |
+| `--token-file <PATH>` | reads a file, or stdin with `-`. The safe way to pass one in a pipeline |
+| `PASSIONFROOT_API_TOKEN` | or `PF_API_TOKEN`. Beats the config file, so CI can override a saved profile |
+| `~/.config/pf/config.toml` | written by `pf auth login` |
+
+```sh
+pf --token-file /run/secrets/pf_key placement list
+echo "$PF_KEY" | pf auth login --token-file -      # non-interactive setup
+```
+
+### Several workspaces
+
+Named profiles, each with its own key and optionally its own host:
+
+```sh
+pf auth login --profile agency-b
+pf --profile agency-b conv list
+PF_PROFILE=agency-b pf conv list
+```
+
+The first profile you save becomes the default; `--set-default` moves it. A
+`--profile` that does not exist is an error listing the ones that do, rather
+than a silent fallback to another workspace's key.
+
+```toml
+# ~/.config/pf/config.toml
+default_profile = "work"
+
+[profiles.work]
+token = "pf_live_..."
+
+[profiles.agency-b]
+token = "pf_live_..."
+```
+
+A single-workspace setup needs no profile at all — a bare `token = "..."` at
+the top level is enough. `PF_CONFIG` points at a different file;
+`XDG_CONFIG_HOME` is honoured.
 
 ## Commands
 
 | | |
 |---|---|
-| `pf auth status` | check the configured token |
+| `pf auth login` / `logout` / `status` / `token` | manage the saved API key |
 | `pf inbox` | unread conversations, with creator names |
 | `pf placement list` | `--start-date --end-date --status --collab --include`, `--metrics-updated-after/-before` |
 | `pf creator list` | `--label <id\|name>… --include channels` |

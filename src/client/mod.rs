@@ -82,7 +82,7 @@ pub struct Client {
     http: reqwest::Client,
     base_url: String,
     token: String,
-    token_source: &'static str,
+    token_source: String,
     limiter: RateLimiter,
     max_retries: u32,
     dry_run: bool,
@@ -91,14 +91,17 @@ pub struct Client {
 }
 
 impl Client {
+    /// Credentials are resolved before the client exists, so the precedence
+    /// between flag, environment and config file lives in one place rather
+    /// than being rediscovered here.
     pub fn new(
-        base_url: String,
+        credentials: crate::config::Credentials,
         timeout: u64,
         max_retries: u32,
         dry_run: bool,
         verbose: bool,
     ) -> Result<Self> {
-        let (token, token_source) = resolve_token()?;
+        let crate::config::Credentials { token, source: token_source, base_url } = credentials;
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(timeout))
             .user_agent(concat!("pf-cli/", env!("CARGO_PKG_VERSION")))
@@ -125,8 +128,8 @@ impl Client {
         &self.base_url
     }
 
-    pub fn token_source(&self) -> &'static str {
-        self.token_source
+    pub fn token_source(&self) -> &str {
+        &self.token_source
     }
 
     pub fn masked_token(&self) -> String {
@@ -340,28 +343,6 @@ fn percent_encode(s: &str) -> String {
         }
     }
     out
-}
-
-fn resolve_token() -> Result<(String, &'static str)> {
-    for name in TOKEN_ENVS {
-        if let Ok(value) = std::env::var(name) {
-            let value = value.trim().to_string();
-            if !value.is_empty() {
-                return Ok((value, name));
-            }
-        }
-    }
-    Err(Error {
-        code: "no_token",
-        status: None,
-        message: format!("No API token found in {} or {}.", TOKEN_ENVS[0], TOKEN_ENVS[1]),
-        hint: Some(
-            "Mint a key at Settings > API Keys in your Passionfroot dashboard, then add \
-             `export PASSIONFROOT_API_TOKEN=...` to your shell profile."
-                .into(),
-        ),
-        exit: exit::AUTH,
-    })
 }
 
 pub fn mask(token: &str) -> String {

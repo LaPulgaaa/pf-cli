@@ -11,10 +11,12 @@ pub mod placement;
 pub mod proposal;
 
 use std::io::IsTerminal;
+use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
-use crate::client::{Client, DEFAULT_BASE_URL, Result};
+use crate::client::{Client, Result};
+use crate::config::{self, Config, TokenArgs};
 use crate::output::{Output, Printer};
 
 const ABOUT: &str = "Work with the Passionfroot public API from the command line.";
@@ -22,9 +24,13 @@ const ABOUT: &str = "Work with the Passionfroot public API from the command line
 const LONG_ABOUT: &str = "\
 Work with the Passionfroot public API from the command line.
 
-Authentication reads PASSIONFROOT_API_TOKEN (or PF_API_TOKEN) from the
-environment. Mint a key at Settings > API Keys in your dashboard and export it
-from your shell profile.
+Mint a key at Settings > API Keys in your dashboard, then save it once with
+`pf auth login`. It is written to ~/.config/pf/config.toml, readable only by
+you. A token can also come from --token, --token-file, or the environment
+variable PASSIONFROOT_API_TOKEN, in that order of precedence.
+
+Several workspaces are handled with named profiles: `pf auth login --profile
+agency-b`, then `pf --profile agency-b conv list`.
 
 Output is a table on a terminal and JSON everywhere else, so piping a command
 into jq needs no extra flag. pf throttles itself to the documented 2 requests
@@ -33,6 +39,7 @@ Idempotency-Key to every write so a retry cannot send twice.";
 
 const AFTER_HELP: &str = "\
 Examples:
+  pf auth login
   pf auth status
   pf inbox
   pf placement list --status confirmed --start-date 2026-01-01 --paginate
@@ -70,9 +77,28 @@ pub struct GlobalArgs {
     #[arg(long, global = true)]
     pub json: bool,
 
-    /// API root.
-    #[arg(long, global = true, env = "PF_BASE_URL", default_value = DEFAULT_BASE_URL, value_name = "URL")]
-    pub base_url: String,
+    /// API root. Defaults to the profile's, then to production.
+    #[arg(long, global = true, value_name = "URL")]
+    pub base_url: Option<String>,
+
+    /// API token for this invocation.
+    ///
+    /// Convenient in a pipeline, but it lands in shell history and is visible
+    /// to `ps` while the command runs. Prefer --token-file or `pf auth login`.
+    #[arg(long, global = true, value_name = "TOKEN")]
+    pub token: Option<String>,
+
+    /// Read the API token from a file, or from stdin with `-`.
+    #[arg(long, global = true, value_name = "PATH", conflicts_with = "token")]
+    pub token_file: Option<PathBuf>,
+
+    /// Use this named profile from the config file.
+    #[arg(long, global = true, value_name = "NAME")]
+    pub profile: Option<String>,
+
+    /// Read configuration from this file instead of ~/.config/pf/config.toml.
+    #[arg(long, global = true, value_name = "PATH")]
+    pub config: Option<PathBuf>,
 
     /// Per-request timeout, in seconds.
     #[arg(long, global = true, default_value_t = 30, value_name = "SECS")]
@@ -113,9 +139,29 @@ impl GlobalArgs {
         }
     }
 
-    pub fn client(&self) -> Result<Client> {
+    pub fn config_path(&self) -> Option<PathBuf> {
+        Config::path(self.config.as_deref())
+    }
+
+    pub fn load_config(&self) -> Result<Config> {
+        Config::load(self.config_path().as_deref())
+    }
+
+    pub fn credentials(&self, config: &Config) -> Result<config::Credentials> {
+        config::resolve(
+            &TokenArgs {
+                token: self.token.as_deref(),
+                token_file: self.token_file.as_deref(),
+                profile: self.profile.as_deref(),
+                base_url: self.base_url.as_deref(),
+            },
+            config,
+        )
+    }
+
+    pub fn client(&self, config: &Config) -> Result<Client> {
         Client::new(
-            self.base_url.clone(),
+            self.credentials(config)?,
             self.timeout,
             self.max_retries,
             self.dry_run,
@@ -126,7 +172,7 @@ impl GlobalArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Resource {
-    /// Check the configured API token.
+    /// Save, inspect and remove the API key pf uses.
     Auth(auth::AuthCmd),
 
     /// Unread conversations that still need answering.
@@ -165,7 +211,11 @@ pub enum Resource {
 impl Resource {
     pub async fn run(&self, client: &Client) -> Result<Output> {
         match self {
-            Resource::Auth(cmd) => cmd.run(client).await,
+            // Handled in main before a client exists: `auth login` has to run
+            // when there is no usable token yet.
+            Resource::Auth(_) => Err(crate::client::Error::other(
+                "auth commands are dispatched before the client is built",
+            )),
             Resource::Inbox(cmd) => cmd.run(client).await,
             Resource::Placement(cmd) => cmd.run(client).await,
             Resource::Creator(cmd) => cmd.run(client).await,

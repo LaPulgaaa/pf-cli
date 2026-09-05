@@ -1,5 +1,6 @@
 mod cli;
 mod client;
+mod config;
 mod models;
 mod output;
 
@@ -26,7 +27,15 @@ async fn main() -> ExitCode {
 }
 
 async fn run(cli: &Cli, printer: &output::Printer) -> client::Result<()> {
-    let client = cli.global.client()?;
+    let config = cli.global.load_config()?;
+
+    // `auth` manages the credentials every other command consumes, so it runs
+    // before -- and for `login`, without -- a usable token.
+    if let cli::Resource::Auth(cmd) = &cli.command {
+        return cmd.run(&cli.global, config, printer).await;
+    }
+
+    let client = cli.global.client(&config)?;
     let output = cli.command.run(&client).await?;
 
     if client.is_dry_run() {
