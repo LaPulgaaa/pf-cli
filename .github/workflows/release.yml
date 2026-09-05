@@ -1,0 +1,140 @@
+# Builds pf for each supported target and attaches the binaries to a GitHub
+# release, so installing needs no Rust toolchain.
+#
+# Every target is built on its own native runner rather than cross-compiled:
+# the TLS stack pulls in aws-lc-sys, which needs cmake and a C compiler, and
+# cross-compiling that reliably costs more than an extra runner does.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and release"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: resolve
+        run: echo "tag=${{ inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      # A tag that disagrees with Cargo.toml ships a binary whose --version
+      # lies about which release it is.
+      - name: Check the tag matches the crate version
+        run: |
+          set -euo pipefail
+          tag="${{ steps.resolve.outputs.tag }}"
+          crate=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          if [ "$tag" != "v$crate" ]; then
+            echo "::error::tag $tag does not match Cargo.toml version $crate (expected v$crate)"
+            exit 1
+          fi
+          echo "$tag matches Cargo.toml"
+
+  build:
+    needs: preflight
+    strategy:
+      # Let every target report, rather than hiding later failures behind the
+      # first one. The release job still refuses to publish a partial set.
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-14
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+          # Linux arm64 needs an `ubuntu-*-arm` runner, which is free on public
+          # repos but billed on private ones. Add this entry once that suits:
+          # - target: aarch64-unknown-linux-gnu
+          #   os: ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # Never ship a binary whose tests did not pass on that platform.
+      - run: cargo test --locked --target ${{ matrix.target }}
+
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="pf-${{ matrix.target }}"
+          tar -C "target/${{ matrix.target }}/release" -czf "$name.tar.gz" pf
+          shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
+          ls -l "$name.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pf-${{ matrix.target }}
+          path: |
+            pf-*.tar.gz
+            pf-*.tar.gz.sha256
+          if-no-files-found: error
+
+  release:
+    needs: [preflight, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Collect checksums
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          cat ./*.tar.gz.sha256 > SHA256SUMS
+          rm -f ./*.tar.gz.sha256
+          cat SHA256SUMS
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          sed "s|__REPO__|$REPO|g; s|__TAG__|$TAG|g" .github/release-notes.md > notes.md
+          # Re-running the workflow on an existing tag replaces the assets
+          # rather than failing.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --title "$TAG" \
+              --notes-file notes.md \
+              --generate-notes
+          fi

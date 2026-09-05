@@ -13,8 +13,40 @@ pf proposal accept prop_123
 
 ## Install
 
+Prebuilt binaries are attached to each [release](https://github.com/LaPulgaaa/pf-cli/releases),
+so no Rust toolchain is needed.
+
 ```sh
-cargo install --path .
+# macOS (Apple silicon)
+curl -sSfL https://github.com/LaPulgaaa/pf-cli/releases/latest/download/pf-aarch64-apple-darwin.tar.gz | tar xz
+xattr -d com.apple.quarantine pf 2>/dev/null || true   # the build is unsigned
+sudo mv pf /usr/local/bin/
+
+# Linux (x86_64)
+curl -sSfL https://github.com/LaPulgaaa/pf-cli/releases/latest/download/pf-x86_64-unknown-linux-gnu.tar.gz | tar xz
+sudo mv pf /usr/local/bin/
+```
+
+Intel Macs use `pf-x86_64-apple-darwin.tar.gz`. Each release carries a
+`SHA256SUMS` file to check downloads against.
+
+From source, which needs Rust:
+
+```sh
+cargo install --git https://github.com/LaPulgaaa/pf-cli   # or --path . in a clone
+```
+
+## Releasing
+
+Tagging `vX.Y.Z` builds every target on its own native runner, runs the tests
+there, and publishes the binaries. The tag has to match the version in
+`Cargo.toml` or the workflow stops before building anything.
+
+```sh
+cargo test
+# bump `version` in Cargo.toml, commit
+git tag -a v0.1.1 -m "pf 0.1.1"
+git push origin v0.1.1
 ```
 
 ## Authentication
