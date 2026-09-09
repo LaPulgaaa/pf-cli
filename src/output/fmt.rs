@@ -150,6 +150,19 @@ fn decode_entity(entity: &str) -> Option<String> {
     Some(named.to_string())
 }
 
+/// Whether a value is a bare UUID.
+///
+/// Identifiers are all-or-nothing: half a UUID cannot be copied, pasted back,
+/// or recognised, whereas half a sentence still reads. Callers use this to
+/// exempt identifiers from column truncation.
+pub fn is_uuid(s: &str) -> bool {
+    s.len() == 36
+        && s.as_bytes().iter().enumerate().all(|(i, b)| match i {
+            8 | 13 | 18 | 23 => *b == b'-',
+            _ => b.is_ascii_hexdigit(),
+        })
+}
+
 pub fn truncate(s: &str, max: usize) -> String {
     let chars: Vec<char> = s.chars().collect();
     if chars.len() <= max {
@@ -200,6 +213,14 @@ mod tests {
         assert_eq!(strip_html("draft &mdash; ready"), "draft \u{2014} ready");
         assert_eq!(strip_html("it&#39;s here"), "it's here");
         assert_eq!(strip_html("x &weird; y"), "x &weird; y");
+    }
+
+    #[test]
+    fn recognises_uuids() {
+        assert!(is_uuid("29851872-88ae-42b4-b69a-a096f1c2d3e4"));
+        assert!(!is_uuid("29851872-88ae-42b4-b69a-a096f"));
+        assert!(!is_uuid("clb_abc123"));
+        assert!(!is_uuid("Anna | UGC Coach & Content Strategist"));
     }
 
     #[test]

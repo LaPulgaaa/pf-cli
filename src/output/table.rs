@@ -90,8 +90,16 @@ impl Table {
                     .enumerate()
                     .map(|(i, cell)| {
                         let cap = self.widths.get(i).copied().unwrap_or(DEFAULT_MAX_WIDTH);
+                        // A column sized for display names still has to hold a
+                        // bare ID when the name was not expanded, and a sliced
+                        // identifier is worse than a wide column.
+                        let text = if super::fmt::is_uuid(&cell.text) {
+                            cell.text.clone()
+                        } else {
+                            super::fmt::truncate(&cell.text, cap)
+                        };
                         Cell {
-                            text: super::fmt::truncate(&cell.text, cap),
+                            text,
                             style: cell.style,
                         }
                     })
