@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-09
+
 ### Changed
 
 - Releases now build through `taiki-e/create-gh-release-action` and
@@ -14,6 +16,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pull request, rather than inside the release path.
 - Every action is pinned to a commit SHA, with Dependabot keeping the pins
   current, and `actionlint` and `zizmor` audit the workflows on every push.
+- Releases now include a Linux arm64 binary.
 
 ### Fixed
 
@@ -49,5 +52,6 @@ First release.
 - Tables on a terminal, unmodified upstream JSON when piped, and stable exit
   codes for auth, not-found, conflict, rate-limit and network failures.
 
-[Unreleased]: https://github.com/LaPulgaaa/pf-cli/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/LaPulgaaa/pf-cli/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LaPulgaaa/pf-cli/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/LaPulgaaa/pf-cli/releases/tag/v0.1.0
