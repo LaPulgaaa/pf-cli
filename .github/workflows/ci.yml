@@ -1,12 +1,16 @@
 name: ci
 
+# Actions are pinned to a commit SHA, not a tag: a tag is mutable, so `@v2`
+# means "whatever that maintainer points it at today". Dependabot keeps the
+# pins current; see .github/dependabot.yml.
+
 on:
   push:
     branches: [master]
   pull_request:
 
-permissions:
-  contents: read
+# Granted per job instead, so a step only ever holds what it needs.
+permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,9 +20,13 @@ jobs:
   # are linted rather than discovered to be wrong at release time.
   workflows:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: raven-actions/actionlint@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
 
   test:
     strategy:
@@ -29,12 +37,16 @@ jobs:
         # not exercise.
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked

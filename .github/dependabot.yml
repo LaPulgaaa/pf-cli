@@ -1,0 +1,10 @@
+# SHA-pinned actions do not float, so something has to move them: without this,
+# pinning just means running a stale action forever.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"

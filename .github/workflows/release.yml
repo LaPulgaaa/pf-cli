@@ -3,23 +3,30 @@
 #
 # The tests are not repeated here: the tag is cut from a commit that ci.yml
 # already ran on every supported platform.
+#
+# Actions are pinned to a commit SHA, not a tag: a tag is mutable, so `@v1`
+# means "whatever that maintainer points it at today". Dependabot keeps the
+# pins current; see .github/dependabot.yml.
 name: release
 
 on:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # Fails the release if CHANGELOG.md has no section for this tag, which is
       # the cheapest way to stop an unannotated version going out.
-      - uses: taiki-e/create-gh-release-action@v1
+      - uses: taiki-e/create-gh-release-action@eba8ea96c86cca8a37f1b56e94b4d13301fba651 # v1.11.0
         with:
           changelog: CHANGELOG.md
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -46,9 +53,13 @@ jobs:
           # - target: aarch64-unknown-linux-gnu
           #   os: ubuntu-22.04-arm
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: taiki-e/upload-rust-binary-action@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/upload-rust-binary-action@f0d45ae91ee7b8ee928de7a9d04d893a08bcbec6 # v1.30.2
         with:
           bin: pf
           target: ${{ matrix.target }}

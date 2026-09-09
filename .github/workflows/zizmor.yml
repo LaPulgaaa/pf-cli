@@ -1,0 +1,30 @@
+# Static security analysis of the workflows themselves: template injection,
+# over-broad permissions, credential persistence, cache poisoning.
+# https://docs.zizmor.sh/integrations/#github-actions
+name: zizmor
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions: {}
+
+jobs:
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Findings surface as inline annotations rather than SARIF in the
+      # security tab: code scanning needs GitHub Advanced Security, which is
+      # not available on a private repository. Swap both flags -- and grant
+      # `security-events: write` -- if this repo ever goes public.
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          advanced-security: false
+          annotations: true
