@@ -1,151 +1,57 @@
-# Builds pf for each supported target and attaches the binaries to a GitHub
-# release, so installing needs no Rust toolchain.
+# Tagging vX.Y.Z publishes a release with a prebuilt binary per target, so
+# installing needs no Rust toolchain.
 #
-# Targets build on a native runner where one exists. The Intel macOS binary is
-# cross-compiled from Apple silicon because GitHub retired the macos-13 image
-# and jobs asking for it are never assigned a runner -- they queue until they
-# are cancelled. Apple's toolchain cross-compiles to x86_64 cleanly, aws-lc-sys
-# included.
+# The tests are not repeated here: the tag is cut from a commit that ci.yml
+# already ran on every supported platform.
 name: release
 
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Existing tag to build and release"
-        required: true
 
 permissions:
   contents: write
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  preflight:
+  create-release:
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.resolve.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      # Fails the release if CHANGELOG.md has no section for this tag, which is
+      # the cheapest way to stop an unannotated version going out.
+      - uses: taiki-e/create-gh-release-action@v1
+        with:
+          changelog: CHANGELOG.md
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: resolve
-        run: echo "tag=${{ inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
-
-      # A tag that disagrees with Cargo.toml ships a binary whose --version
-      # lies about which release it is.
-      - name: Check the tag matches the crate version
-        run: |
-          set -euo pipefail
-          tag="${{ steps.resolve.outputs.tag }}"
-          crate=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          if [ "$tag" != "v$crate" ]; then
-            echo "::error::tag $tag does not match Cargo.toml version $crate (expected v$crate)"
-            exit 1
-          fi
-          echo "$tag matches Cargo.toml"
-
-  build:
-    needs: preflight
+  upload-assets:
+    needs: create-release
     strategy:
-      # Let every target report, rather than hiding later failures behind the
-      # first one. The release job still refuses to publish a partial set.
       fail-fast: false
       matrix:
         include:
           - target: aarch64-apple-darwin
-            os: macos-14
-            test: true
+            os: macos-latest
+          # Cross-compiled from Apple silicon rather than built on an Intel
+          # runner. Apple's toolchain handles it cleanly, aws-lc-sys included,
+          # and it keeps both macOS targets on the best-supported label.
+          # (`macos-15-intel` exists if a native build is ever wanted; the old
+          # `macos-13` does not, and a job asking for it queues forever.)
           - target: x86_64-apple-darwin
-            os: macos-14
-            # Cross-compiled, so the host cannot be relied on to run the result;
-            # the arm64 leg above covers the tests for macOS.
-            test: false
+            os: macos-latest
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-22.04
-            test: true
-          # Linux arm64 needs an `ubuntu-*-arm` runner, which is free on public
-          # repos but billed on private ones. Add this entry once that suits:
+          # Linux arm64 needs an `ubuntu-*-arm` runner: free on public repos,
+          # billed on private ones. Uncomment once that suits.
           # - target: aarch64-unknown-linux-gnu
           #   os: ubuntu-22.04-arm
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          ref: ${{ needs.preflight.outputs.tag }}
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.target }}
-
-      # Never ship a binary whose tests did not pass, where the runner can run
-      # them at all.
-      - if: matrix.test
-        run: cargo test --locked --target ${{ matrix.target }}
-
-      - run: cargo build --release --locked --target ${{ matrix.target }}
-
-      - name: Package
-        shell: bash
-        run: |
-          set -euo pipefail
-          name="pf-${{ matrix.target }}"
-          tar -C "target/${{ matrix.target }}/release" -czf "$name.tar.gz" pf
-          shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
-          # Catch a cross-compile that silently produced the host architecture.
-          file "target/${{ matrix.target }}/release/pf"
-          ls -l "$name.tar.gz"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pf-${{ matrix.target }}
-          path: |
-            pf-*.tar.gz
-            pf-*.tar.gz.sha256
-          if-no-files-found: error
-
-  release:
-    needs: [preflight, build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-
-      - name: Collect checksums
-        working-directory: dist
-        run: |
-          set -euo pipefail
-          cat ./*.tar.gz.sha256 > SHA256SUMS
-          rm -f ./*.tar.gz.sha256
-          cat SHA256SUMS
-
-      - name: Publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          TAG: ${{ needs.preflight.outputs.tag }}
-        run: |
-          set -euo pipefail
-          sed "s|__REPO__|$REPO|g; s|__TAG__|$TAG|g" .github/release-notes.md > notes.md
-          # Re-running the workflow on an existing tag replaces the assets
-          # rather than failing.
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/* --clobber
-          else
-            gh release create "$TAG" dist/* \
-              --title "$TAG" \
-              --notes-file notes.md \
-              --generate-notes
-          fi
+          bin: pf
+          target: ${{ matrix.target }}
+          locked: true
+          checksum: sha256
+          token: ${{ secrets.GITHUB_TOKEN }}

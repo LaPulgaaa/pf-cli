@@ -38,16 +38,21 @@ cargo install --git https://github.com/LaPulgaaa/pf-cli   # or --path . in a clo
 
 ## Releasing
 
-Tagging `vX.Y.Z` builds every target on its own native runner, runs the tests
-there, and publishes the binaries. The tag has to match the version in
-`Cargo.toml` or the workflow stops before building anything.
+`ci.yml` runs `rustfmt`, `clippy`, the tests and `actionlint` on every push and
+pull request. `release.yml` fires on a `vX.Y.Z` tag and does nothing but build:
+it publishes a release from the matching `CHANGELOG.md` section, then attaches
+a binary and a checksum per target.
 
 ```sh
-cargo test
-# bump `version` in Cargo.toml, commit
+# bump `version` in Cargo.toml, add the section to CHANGELOG.md, commit
 git tag -a v0.1.1 -m "pf 0.1.1"
 git push origin v0.1.1
 ```
+
+A tag with no matching changelog section fails the release before anything is
+built. Lint the workflows locally with `actionlint` before pushing — it is what
+catches a runner label GitHub has retired, which otherwise queues indefinitely
+rather than failing.
 
 ## Authentication
 
