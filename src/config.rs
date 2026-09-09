@@ -227,7 +227,12 @@ pub fn prompt_for_token() -> Result<String> {
         return Err(Error::usage("No terminal to prompt on.")
             .with_hint("Pipe the key in with `pf auth login --token-file -` instead."));
     }
-    let token = rpassword::prompt_password("Paste your Passionfroot API key: ")
+    // Say the input is hidden. Without this a paste looks like it did nothing,
+    // and the natural response is to paste again into a prompt that already
+    // holds the key.
+    eprintln!("Paste your API key from Settings > API Keys.");
+    eprintln!("The key is not shown as you type or paste it.");
+    let token = rpassword::prompt_password("Key: ")
         .map_err(|e| Error::usage(format!("Could not read the key: {e}")))?;
 
     let token = token.trim().to_string();

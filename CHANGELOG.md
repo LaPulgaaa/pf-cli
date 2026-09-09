@@ -15,6 +15,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Every action is pinned to a commit SHA, with Dependabot keeping the pins
   current, and `actionlint` and `zizmor` audit the workflows on every push.
 
+### Fixed
+
+- `pf auth login` says that the key prompt is hidden, names the host that
+  rejected a key, and `--help` states the default API root -- a key minted in
+  one environment was previously indistinguishable from a mistyped one.
+
 ## [0.1.0] - 2026-09-05
 
 First release.

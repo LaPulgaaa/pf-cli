@@ -77,7 +77,11 @@ pub struct GlobalArgs {
     #[arg(long, global = true)]
     pub json: bool,
 
-    /// API root. Defaults to the profile's, then to production.
+    /// API root.
+    ///
+    /// Falls back to the active profile's, then to
+    /// https://workspace.passionfroot.me/api/v1. Passed to `auth login`, it is
+    /// saved alongside the token.
     #[arg(long, global = true, value_name = "URL")]
     pub base_url: Option<String>,
 

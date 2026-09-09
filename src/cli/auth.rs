@@ -106,10 +106,15 @@ async fn login(
             .await
             .map_err(|mut e| {
                 if e.status == Some(401) || e.status == Some(403) {
-                    e.message = "That key was rejected by the API; nothing was saved.".into();
+                    // Name the host that did the rejecting. A key minted in
+                    // another environment fails exactly like a mistyped one,
+                    // and the difference is invisible without this.
+                    e.message = format!("{base_url} rejected that key; nothing was saved.");
                     e.hint = Some(
-                        "Check you copied the whole key, and that it has not expired or been \
-                     revoked in Settings > API Keys."
+                        "Check the key was copied in full and has not expired or been revoked \
+                     in Settings > API Keys -- and that it belongs to this environment. A key \
+                     minted on staging will not work against production; pass --base-url to \
+                     log in against the host it came from."
                             .into(),
                     );
                 }
