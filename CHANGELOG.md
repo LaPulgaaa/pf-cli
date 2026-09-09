@@ -20,6 +20,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `pf auth login` says that the key prompt is hidden, names the host that
   rejected a key, and `--help` states the default API root -- a key minted in
   one environment was previously indistinguishable from a mistyped one.
+- Identifiers are no longer truncated to fit a column, so `pf conv list` shows
+  a whole creator ID rather than an unusable prefix.
+- `--label` accepts a UUID without spending a request on the label catalog.
+- `--verbose` includes the query string, which is what carries the filters
+  being debugged.
 
 ## [0.1.0] - 2026-09-05
 

@@ -198,10 +198,17 @@ impl Client {
 
             if self.verbose {
                 let ms = started.elapsed().as_millis();
+                // The query string is the whole point of a verbose trace: it is
+                // what carries the filters being debugged.
+                let mut traced = self.url(&req.path);
+                if !req.query.is_empty() {
+                    traced.push('?');
+                    traced.push_str(&encode_query(&req.query));
+                }
                 eprintln!(
                     "{} {} -> {} ({ms}ms){}",
                     req.method,
-                    self.url(&req.path),
+                    traced,
                     status.as_u16(),
                     headers
                         .get("ratelimit")
