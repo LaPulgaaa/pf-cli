@@ -45,12 +45,7 @@ impl AuthCmd {
     /// `auth` manages the credentials every other command consumes, so it takes
     /// the raw arguments rather than a ready-made client: `login` has to run
     /// when no usable token exists yet.
-    pub async fn run(
-        &self,
-        global: &GlobalArgs,
-        config: Config,
-        printer: &Printer,
-    ) -> Result<()> {
+    pub async fn run(&self, global: &GlobalArgs, config: Config, printer: &Printer) -> Result<()> {
         match &self.command {
             AuthSub::Login(args) => login(global, config, args, printer).await,
             AuthSub::Logout => logout(global, config, printer),
@@ -83,11 +78,18 @@ async fn login(
     let base_url = global
         .base_url
         .clone()
-        .or_else(|| std::env::var(crate::config::BASE_URL_ENV).ok().filter(|v| !v.is_empty()))
+        .or_else(|| {
+            std::env::var(crate::config::BASE_URL_ENV)
+                .ok()
+                .filter(|v| !v.is_empty())
+        })
         .unwrap_or_else(|| crate::client::DEFAULT_BASE_URL.to_string());
 
-    let credentials =
-        Credentials { token: token.clone(), source: "login".into(), base_url: base_url.clone() };
+    let credentials = Credentials {
+        token: token.clone(),
+        source: "login".into(),
+        base_url: base_url.clone(),
+    };
 
     if !args.no_verify {
         let client = Client::new(
@@ -99,27 +101,33 @@ async fn login(
         )?;
         // Saving a key that does not work just moves the failure to the next
         // command, where it is harder to explain.
-        client.send(Request::get("/labels")).await.map_err(|mut e| {
-            if e.status == Some(401) || e.status == Some(403) {
-                e.message = "That key was rejected by the API; nothing was saved.".into();
-                e.hint = Some(
-                    "Check you copied the whole key, and that it has not expired or been \
+        client
+            .send(Request::get("/labels"))
+            .await
+            .map_err(|mut e| {
+                if e.status == Some(401) || e.status == Some(403) {
+                    e.message = "That key was rejected by the API; nothing was saved.".into();
+                    e.hint = Some(
+                        "Check you copied the whole key, and that it has not expired or been \
                      revoked in Settings > API Keys."
-                        .into(),
-                );
-            }
-            e
-        })?;
+                            .into(),
+                    );
+                }
+                e
+            })?;
     }
 
-    let custom_base_url =
-        (base_url != crate::client::DEFAULT_BASE_URL).then(|| base_url.clone());
+    let custom_base_url = (base_url != crate::client::DEFAULT_BASE_URL).then(|| base_url.clone());
 
     let location = match config.active_profile_name(global.profile.as_deref()) {
         Some(name) => {
-            config
-                .profiles
-                .insert(name.clone(), Profile { token, base_url: custom_base_url });
+            config.profiles.insert(
+                name.clone(),
+                Profile {
+                    token,
+                    base_url: custom_base_url,
+                },
+            );
             // The first profile saved becomes the default, so a single-profile
             // setup never has to pass --profile.
             if args.set_default || config.default_profile.is_none() && config.profiles.len() == 1 {
@@ -212,7 +220,11 @@ async fn status(global: &GlobalArgs, config: &Config, printer: &Printer) -> Resu
         return Ok(());
     }
 
-    let labels = response.get("data").and_then(Value::as_array).map(Vec::len).unwrap_or(0);
+    let labels = response
+        .get("data")
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0);
     let profile = config.active_profile_name(global.profile.as_deref());
     let config_path = global.config_path().map(|p| p.display().to_string());
 

@@ -69,18 +69,22 @@ pub async fn resolve_ids(client: &Client, values: &[String]) -> Result<Vec<Strin
             resolved.push(id.clone());
             continue;
         }
-        match labels.iter().find(|(_, name)| name.eq_ignore_ascii_case(value)) {
+        match labels
+            .iter()
+            .find(|(_, name)| name.eq_ignore_ascii_case(value))
+        {
             Some((id, _)) => resolved.push(id.clone()),
             None => {
                 let known: Vec<&str> = labels.iter().map(|(_, n)| n.as_str()).collect();
-                return Err(Error::usage(format!(
-                    "No label named `{value}` in this workspace."
-                ))
-                .with_hint(if known.is_empty() {
-                    "This workspace has no labels yet.".to_string()
-                } else {
-                    format!("Known labels: {}", known.join(", "))
-                }));
+                return Err(
+                    Error::usage(format!("No label named `{value}` in this workspace.")).with_hint(
+                        if known.is_empty() {
+                            "This workspace has no labels yet.".to_string()
+                        } else {
+                            format!("Known labels: {}", known.join(", "))
+                        },
+                    ),
+                );
             }
         }
     }

@@ -101,7 +101,11 @@ impl Client {
         dry_run: bool,
         verbose: bool,
     ) -> Result<Self> {
-        let crate::config::Credentials { token, source: token_source, base_url } = credentials;
+        let crate::config::Credentials {
+            token,
+            source: token_source,
+            base_url,
+        } = credentials;
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(timeout))
             .user_agent(concat!("pf-cli/", env!("CARGO_PKG_VERSION")))
@@ -216,7 +220,10 @@ impl Client {
                 self.limiter.pause_for(wait);
                 attempt += 1;
                 if self.verbose {
-                    eprintln!("  429 -- waiting {:.1}s before retry {attempt}", wait.as_secs_f64());
+                    eprintln!(
+                        "  429 -- waiting {:.1}s before retry {attempt}",
+                        wait.as_secs_f64()
+                    );
                 }
                 tokio::time::sleep(wait).await;
                 continue;
@@ -252,7 +259,10 @@ impl Client {
         let jitter = Duration::from_millis((std::process::id() as u64 % 120) + 30);
         let wait = base + jitter;
         if self.verbose {
-            eprintln!("  retrying in {:.1}s (attempt {attempt})", wait.as_secs_f64());
+            eprintln!(
+                "  retrying in {:.1}s (attempt {attempt})",
+                wait.as_secs_f64()
+            );
         }
         tokio::time::sleep(wait).await;
     }
@@ -294,7 +304,10 @@ impl Client {
         }
 
         let mut headers = serde_json::Map::new();
-        headers.insert("authorization".into(), json!(format!("Bearer {}", mask(&self.token))));
+        headers.insert(
+            "authorization".into(),
+            json!(format!("Bearer {}", mask(&self.token))),
+        );
         headers.insert("accept".into(), json!("application/json"));
         if req.body.is_some() {
             headers.insert("content-type".into(), json!("application/json"));

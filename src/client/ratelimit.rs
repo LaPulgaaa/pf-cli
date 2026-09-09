@@ -33,7 +33,10 @@ impl RateLimiter {
     /// per-key limit.
     pub fn new(scope: &str) -> Self {
         Self {
-            state: Mutex::new(State { next_at: None, interval: Duration::from_millis(500) }),
+            state: Mutex::new(State {
+                next_at: None,
+                interval: Duration::from_millis(500),
+            }),
             shared: shared_slot_path(scope),
         }
     }
@@ -90,8 +93,12 @@ impl RateLimiter {
     }
 
     fn push_shared(&self, wait: Duration) {
-        let Some(path) = self.shared.as_ref() else { return };
-        let Some(mut file) = open_slot_file(path) else { return };
+        let Some(path) = self.shared.as_ref() else {
+            return;
+        };
+        let Some(mut file) = open_slot_file(path) else {
+            return;
+        };
         if file.lock().is_err() {
             return;
         }
@@ -107,14 +114,14 @@ impl RateLimiter {
         let combined = header_str(headers, "ratelimit");
 
         // `RateLimit-Policy: 2;w=1` -- derive the spacing from the real policy.
-        if let Some(policy) = header_str(headers, "ratelimit-policy") {
-            if let Some((limit, window)) = parse_policy(&policy) {
-                if limit > 0 && window > 0.0 {
-                    let per = Duration::from_secs_f64(window / limit as f64);
-                    let mut st = self.state.lock().unwrap();
-                    st.interval = per;
-                }
-            }
+        if let Some(policy) = header_str(headers, "ratelimit-policy")
+            && let Some((limit, window)) = parse_policy(&policy)
+            && limit > 0
+            && window > 0.0
+        {
+            let per = Duration::from_secs_f64(window / limit as f64);
+            let mut st = self.state.lock().unwrap();
+            st.interval = per;
         }
 
         // `RateLimit: limit=2, remaining=0, reset=1` -- budget is spent, hold
@@ -153,11 +160,22 @@ impl RateLimiter {
 const MAX_SHARED_WAIT_MS: u64 = 300_000;
 
 fn now_millis() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 fn open_slot_file(path: &PathBuf) -> Option<File> {
-    OpenOptions::new().read(true).write(true).create(true).open(path).ok()
+    // Never truncate on open: a concurrent reader must still see the slot
+    // currently claimed, and writes rewind and set_len instead.
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .create(true)
+        .open(path)
+        .ok()
 }
 
 fn read_slot(file: &mut File) -> Option<u64> {
@@ -204,8 +222,11 @@ fn header_str(headers: &reqwest::header::HeaderMap, name: &str) -> Option<String
 fn parse_policy(s: &str) -> Option<(u32, f64)> {
     let mut parts = s.split(';');
     let limit: u32 = parts.next()?.trim().parse().ok()?;
-    let window = parts
-        .find_map(|p| p.trim().strip_prefix("w=").and_then(|v| v.trim().parse::<f64>().ok()))?;
+    let window = parts.find_map(|p| {
+        p.trim()
+            .strip_prefix("w=")
+            .and_then(|v| v.trim().parse::<f64>().ok())
+    })?;
     Some((limit, window))
 }
 
@@ -222,7 +243,10 @@ fn parse_kv(s: &str, key: &str) -> Option<f64> {
 /// than giving up on the retry.
 pub fn retry_after(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
     let raw = header_str(headers, "retry-after")?;
-    raw.trim().parse::<f64>().ok().map(|secs| Duration::from_secs_f64(secs.clamp(0.0, 300.0)))
+    raw.trim()
+        .parse::<f64>()
+        .ok()
+        .map(|secs| Duration::from_secs_f64(secs.clamp(0.0, 300.0)))
 }
 
 #[cfg(test)]

@@ -63,7 +63,13 @@ impl ApiCmd {
             // Deliberately not gh's rule, where fields alone imply POST. Most
             // of this API is reads, and an unintended POST to one of them is a
             // write nobody asked for; an unintended GET is harmless.
-            .unwrap_or_else(|| if self.input.is_some() { "POST".into() } else { "GET".into() })
+            .unwrap_or_else(|| {
+                if self.input.is_some() {
+                    "POST".into()
+                } else {
+                    "GET".into()
+                }
+            })
             .to_uppercase();
 
         let method = Method::from_bytes(method_name.as_bytes())
@@ -101,7 +107,8 @@ impl ApiCmd {
             let (name, value) = header.split_once(':').ok_or_else(|| {
                 Error::usage(format!("Header must be `Name: value`, got `{header}`"))
             })?;
-            req.headers.push((name.trim().to_string(), value.trim().to_string()));
+            req.headers
+                .push((name.trim().to_string(), value.trim().to_string()));
         }
 
         if let Some(key) = &self.idempotency_key {
@@ -150,7 +157,9 @@ fn split_target(target: &[String]) -> Result<(Option<String>, String)> {
     match target {
         [path] => Ok((None, path.clone())),
         [method, path] => Ok((Some(method.clone()), path.clone())),
-        _ => Err(Error::usage("Expected `pf api <PATH>` or `pf api <METHOD> <PATH>`.")),
+        _ => Err(Error::usage(
+            "Expected `pf api <PATH>` or `pf api <METHOD> <PATH>`.",
+        )),
     }
 }
 
@@ -197,6 +206,9 @@ mod tests {
         let one = vec!["/placements".to_string()];
         assert_eq!(split_target(&one).unwrap(), (None, "/placements".into()));
         let two = vec!["POST".to_string(), "/inquiries".to_string()];
-        assert_eq!(split_target(&two).unwrap(), (Some("POST".into()), "/inquiries".into()));
+        assert_eq!(
+            split_target(&two).unwrap(),
+            (Some("POST".into()), "/inquiries".into())
+        );
     }
 }

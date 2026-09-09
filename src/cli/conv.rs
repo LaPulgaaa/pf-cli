@@ -143,8 +143,9 @@ impl ConvCmd {
             ConvSub::Messages(args) => messages(client, args).await,
             ConvSub::Reply(args) => reply(client, args).await,
             ConvSub::Read(args) => {
-                let value =
-                    client.send(Request::post(format!("/conversations/{}/read", args.id))).await?;
+                let value = client
+                    .send(Request::post(format!("/conversations/{}/read", args.id)))
+                    .await?;
                 Ok(Output::new(value, View::ConversationDetail))
             }
         }
@@ -152,21 +153,30 @@ impl ConvCmd {
 }
 
 async fn list(client: &Client, args: &ListArgs) -> Result<Output> {
-    if let Some(search) = &args.search {
-        if search.chars().count() < 2 {
-            return Err(crate::client::Error::usage(
-                "--search needs at least 2 characters.",
-            ));
-        }
+    if let Some(search) = &args.search
+        && search.chars().count() < 2
+    {
+        return Err(crate::client::Error::usage(
+            "--search needs at least 2 characters.",
+        ));
     }
 
     let req = Request::get("/conversations")
         .query_opt("updatedAfter", args.updated_after.clone())
         .query_opt("creatorId", args.creator_id.clone())
         .query_opt("q", args.search.clone())
-        .query_opt("isUnread", tristate(args.unread, args.no_unread).map(|b| b.to_string()))
-        .query_opt("isArchived", tristate(args.archived, args.no_archived).map(|b| b.to_string()))
-        .query_opt("isBlocked", tristate(args.blocked, args.no_blocked).map(|b| b.to_string()))
+        .query_opt(
+            "isUnread",
+            tristate(args.unread, args.no_unread).map(|b| b.to_string()),
+        )
+        .query_opt(
+            "isArchived",
+            tristate(args.archived, args.no_archived).map(|b| b.to_string()),
+        )
+        .query_opt(
+            "isBlocked",
+            tristate(args.blocked, args.no_blocked).map(|b| b.to_string()),
+        )
         .query_opt("include", csv(&args.include))
         .query_opt("limit", args.page.limit.map(|l| l.to_string()))
         .query_opt("cursor", args.page.cursor.clone());

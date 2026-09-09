@@ -20,11 +20,17 @@ pub struct Cell {
 
 impl Cell {
     pub fn plain(text: impl Into<String>) -> Self {
-        Self { text: text.into(), style: None }
+        Self {
+            text: text.into(),
+            style: None,
+        }
     }
 
     pub fn styled(text: impl Into<String>, style: &'static str) -> Self {
-        Self { text: text.into(), style: Some(style) }
+        Self {
+            text: text.into(),
+            style: Some(style),
+        }
     }
 }
 
@@ -84,7 +90,10 @@ impl Table {
                     .enumerate()
                     .map(|(i, cell)| {
                         let cap = self.widths.get(i).copied().unwrap_or(DEFAULT_MAX_WIDTH);
-                        Cell { text: super::fmt::truncate(&cell.text, cap), style: cell.style }
+                        Cell {
+                            text: super::fmt::truncate(&cell.text, cap),
+                            style: cell.style,
+                        }
                     })
                     .collect()
             })
@@ -98,7 +107,11 @@ impl Table {
 
         let mut out = String::new();
         for (i, header) in self.headers.iter().enumerate() {
-            let pad = if i + 1 == cols { 0 } else { widths[i] - header.chars().count() + 2 };
+            let pad = if i + 1 == cols {
+                0
+            } else {
+                widths[i] - header.chars().count() + 2
+            };
             if self.color {
                 out.push_str(DIM);
                 out.push_str(header);
@@ -112,8 +125,11 @@ impl Table {
 
         for row in &truncated {
             for (i, cell) in row.iter().enumerate().take(cols) {
-                let pad =
-                    if i + 1 == cols { 0 } else { widths[i] - cell.text.chars().count() + 2 };
+                let pad = if i + 1 == cols {
+                    0
+                } else {
+                    widths[i] - cell.text.chars().count() + 2
+                };
                 match (self.color, cell.style) {
                     (true, Some(style)) => {
                         out.push_str(style);
@@ -150,7 +166,11 @@ pub fn status_style(status: &str) -> &'static str {
 /// Key/value blocks for single-object views, where a one-row table reads worse
 /// than a plain list.
 pub fn detail(rows: &[(&str, String)], color: bool) {
-    let width = rows.iter().map(|(k, _)| k.chars().count()).max().unwrap_or(0);
+    let width = rows
+        .iter()
+        .map(|(k, _)| k.chars().count())
+        .max()
+        .unwrap_or(0);
     for (key, value) in rows {
         let pad = " ".repeat(width - key.chars().count());
         if color {

@@ -26,11 +26,23 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
     pub fn usage(message: impl Into<String>) -> Self {
-        Self { code: "usage", status: None, message: message.into(), hint: None, exit: exit::USAGE }
+        Self {
+            code: "usage",
+            status: None,
+            message: message.into(),
+            hint: None,
+            exit: exit::USAGE,
+        }
     }
 
     pub fn other(message: impl Into<String>) -> Self {
-        Self { code: "error", status: None, message: message.into(), hint: None, exit: exit::OTHER }
+        Self {
+            code: "error",
+            status: None,
+            message: message.into(),
+            hint: None,
+            exit: exit::OTHER,
+        }
     }
 
     pub fn network(message: impl Into<String>) -> Self {
@@ -76,7 +88,13 @@ impl Error {
         });
 
         let hint = hint_for(status, path);
-        Self { code, status: Some(status), message, hint, exit }
+        Self {
+            code,
+            status: Some(status),
+            message,
+            hint,
+            exit,
+        }
     }
 }
 

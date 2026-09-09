@@ -182,8 +182,9 @@ async fn message(client: &Client, args: &MessageArgs) -> Result<Output> {
             if let Some(campaign) = &args.campaign_id {
                 body["campaignId"] = json!(campaign);
             }
-            let req =
-                Request::post("/inquiries").body(body).idempotent(args.idempotency_key.clone());
+            let req = Request::post("/inquiries")
+                .body(body)
+                .idempotent(args.idempotency_key.clone());
             let value = client.send(req).await?;
 
             let created = value
@@ -206,9 +207,10 @@ fn dry_run_message(client: &Client, args: &MessageArgs, text: &str) -> Result<Ou
     let lookup = Request::get("/conversations")
         .query("creatorId", args.id.clone())
         .query("limit", "1");
-    client.record_dry_run(
-        client.describe(&lookup, Some("step 1: decides which of the two branches below runs")),
-    );
+    client.record_dry_run(client.describe(
+        &lookup,
+        Some("step 1: decides which of the two branches below runs"),
+    ));
 
     if !args.force_inquiry {
         let send = Request::post("/conversations/{conversationId}/messages")
@@ -225,8 +227,9 @@ fn dry_run_message(client: &Client, args: &MessageArgs, text: &str) -> Result<Ou
         if let Some(campaign) = &args.campaign_id {
             body["campaignId"] = json!(campaign);
         }
-        let inquiry =
-            Request::post("/inquiries").body(body).idempotent(args.idempotency_key.clone());
+        let inquiry = Request::post("/inquiries")
+            .body(body)
+            .idempotent(args.idempotency_key.clone());
         client.record_dry_run(
             client.describe(&inquiry, Some("step 2b: if there is no conversation yet")),
         );
@@ -238,7 +241,9 @@ fn dry_run_message(client: &Client, args: &MessageArgs, text: &str) -> Result<Ou
 /// There is at most one conversation per creator, so a single-result lookup is
 /// exact rather than a best guess.
 async fn find_conversation(client: &Client, creator_id: &str) -> Result<Option<String>> {
-    let req = Request::get("/conversations").query("creatorId", creator_id).query("limit", "1");
+    let req = Request::get("/conversations")
+        .query("creatorId", creator_id)
+        .query("limit", "1");
     let value = client.send(req).await?;
     Ok(value
         .get("data")

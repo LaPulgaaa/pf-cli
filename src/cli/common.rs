@@ -57,9 +57,8 @@ impl TextInput {
             if path.as_os_str() == "-" {
                 read_stdin()?
             } else {
-                std::fs::read_to_string(path).map_err(|e| {
-                    Error::usage(format!("Could not read {}: {e}", path.display()))
-                })?
+                std::fs::read_to_string(path)
+                    .map_err(|e| Error::usage(format!("Could not read {}: {e}", path.display())))?
             }
         } else if !std::io::stdin().is_terminal() {
             read_stdin()?

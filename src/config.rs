@@ -68,12 +68,17 @@ impl Config {
 
     /// A missing file is not an error: the environment alone is a valid setup.
     pub fn load(path: Option<&Path>) -> Result<Self> {
-        let Some(path) = path else { return Ok(Self::default()) };
+        let Some(path) = path else {
+            return Ok(Self::default());
+        };
         let raw = match std::fs::read_to_string(path) {
             Ok(raw) => raw,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Self::default()),
             Err(e) => {
-                return Err(Error::other(format!("Could not read {}: {e}", path.display())));
+                return Err(Error::other(format!(
+                    "Could not read {}: {e}",
+                    path.display()
+                )));
             }
         };
 
@@ -87,9 +92,8 @@ impl Config {
 
     pub fn save(&self, path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                Error::other(format!("Could not create {}: {e}", parent.display()))
-            })?;
+            std::fs::create_dir_all(parent)
+                .map_err(|e| Error::other(format!("Could not create {}: {e}", parent.display())))?;
             restrict(parent, 0o700);
         }
 
@@ -137,8 +141,10 @@ pub fn resolve(args: &TokenArgs<'_>, config: &Config) -> Result<Credentials> {
         Some(name) => match config.profiles.get(name) {
             Some(profile) => Some((name.clone(), profile.clone())),
             None if args.profile.is_some() || std::env::var(PROFILE_ENV).is_ok() => {
-                return Err(Error::usage(format!("No profile named `{name}` in the config."))
-                    .with_hint(profile_hint(config)));
+                return Err(
+                    Error::usage(format!("No profile named `{name}` in the config."))
+                        .with_hint(profile_hint(config)),
+                );
             }
             None => None,
         },
@@ -148,11 +154,17 @@ pub fn resolve(args: &TokenArgs<'_>, config: &Config) -> Result<Credentials> {
     let (token, source) = if let Some(token) = args.token {
         (token.trim().to_string(), "--token".to_string())
     } else if let Some(path) = args.token_file {
-        (read_token_file(path)?, format!("--token-file {}", path.display()))
+        (
+            read_token_file(path)?,
+            format!("--token-file {}", path.display()),
+        )
     } else if let Some((name, value)) = env_token() {
         (value, format!("env {name}"))
     } else if let Some((name, profile)) = &profile {
-        (profile.token.trim().to_string(), format!("profile `{name}`"))
+        (
+            profile.token.trim().to_string(),
+            format!("profile `{name}`"),
+        )
     } else if let Some(token) = &config.token {
         (token.trim().to_string(), "config file".to_string())
     } else {
@@ -171,7 +183,11 @@ pub fn resolve(args: &TokenArgs<'_>, config: &Config) -> Result<Credentials> {
         .or_else(|| config.base_url.clone())
         .unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
 
-    Ok(Credentials { token, source, base_url })
+    Ok(Credentials {
+        token,
+        source,
+        base_url,
+    })
 }
 
 fn env_token() -> Option<(&'static str, String)> {
@@ -197,7 +213,10 @@ pub fn read_token_file(path: &Path) -> Result<String> {
 
     let token = raw.trim().to_string();
     if token.is_empty() {
-        return Err(Error::usage(format!("{} contains no token.", path.display())));
+        return Err(Error::usage(format!(
+            "{} contains no token.",
+            path.display()
+        )));
     }
     Ok(token)
 }
@@ -276,10 +295,17 @@ mod tests {
 
     #[test]
     fn round_trips_a_profile_config() {
-        let mut config = Config { default_profile: Some("work".into()), ..Default::default() };
-        config
-            .profiles
-            .insert("work".into(), Profile { token: "pf_live_x".into(), base_url: None });
+        let mut config = Config {
+            default_profile: Some("work".into()),
+            ..Default::default()
+        };
+        config.profiles.insert(
+            "work".into(),
+            Profile {
+                token: "pf_live_x".into(),
+                base_url: None,
+            },
+        );
 
         let text = toml::to_string_pretty(&config).unwrap();
         let parsed: Config = toml::from_str(&text).unwrap();

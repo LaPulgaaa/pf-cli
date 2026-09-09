@@ -47,9 +47,7 @@ const MAX_COMMENT_CHARS: usize = 10_000;
 impl ProposalCmd {
     pub async fn run(&self, client: &Client) -> Result<Output> {
         let req = match &self.command {
-            ProposalSub::Accept(args) => {
-                Request::post(format!("/proposals/{}/accept", args.id))
-            }
+            ProposalSub::Accept(args) => Request::post(format!("/proposals/{}/accept", args.id)),
             ProposalSub::Reject(args) => {
                 if let Some(comment) = &args.comment {
                     let chars = comment.chars().count();

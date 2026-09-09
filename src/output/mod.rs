@@ -37,7 +37,11 @@ pub struct Output {
 
 impl Output {
     pub fn new(value: Value, view: View) -> Self {
-        Self { value, view, note: None }
+        Self {
+            value,
+            view,
+            note: None,
+        }
     }
 
     pub fn note(mut self, note: impl Into<String>) -> Self {
@@ -54,10 +58,10 @@ pub struct Printer {
 
 impl Printer {
     pub fn emit(&self, out: &Output) {
-        if let Some(note) = &out.note {
-            if !self.quiet {
-                eprintln!("{note}");
-            }
+        if let Some(note) = &out.note
+            && !self.quiet
+        {
+            eprintln!("{note}");
         }
 
         if self.json {
@@ -97,7 +101,10 @@ impl Printer {
         if self.quiet || pagination.get("hasMore").and_then(Value::as_bool) != Some(true) {
             return;
         }
-        let cursor = pagination.get("nextCursor").and_then(Value::as_str).unwrap_or("");
+        let cursor = pagination
+            .get("nextCursor")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         eprintln!("\nMore results available. Re-run with --paginate, or --cursor {cursor}");
     }
 
@@ -113,7 +120,9 @@ impl Printer {
             return self.raw(data);
         };
         let mut t = Table::new(
-            &["date", "creator", "name", "platform", "type", "status", "views", "price"],
+            &[
+                "date", "creator", "name", "platform", "type", "status", "views", "price",
+            ],
             self.color,
         )
         .max_widths(&[12, 24, 36, 12, 12, 10, 10, 14]);
@@ -169,7 +178,13 @@ impl Printer {
                 ("name", fmt::text(c.display_name.as_deref())),
                 ("country", fmt::text(c.country.as_deref())),
                 ("labels", join_labels(&c.labels)),
-                ("note", c.note.as_deref().map(fmt::strip_html).unwrap_or_else(|| "-".into())),
+                (
+                    "note",
+                    c.note
+                        .as_deref()
+                        .map(fmt::strip_html)
+                        .unwrap_or_else(|| "-".into()),
+                ),
             ],
             self.color,
         );
@@ -178,8 +193,11 @@ impl Printer {
             return;
         }
         println!();
-        let mut t = Table::new(&["channel", "platform", "reach", "views", "engagement rate"], self.color)
-            .max_widths(&[34, 14, 12, 12, 16]);
+        let mut t = Table::new(
+            &["channel", "platform", "reach", "views", "engagement rate"],
+            self.color,
+        )
+        .max_widths(&[34, 14, 12, 12, 16]);
         for ch in &c.channels {
             let m = ch.metrics.as_ref();
             t.push(vec![
@@ -243,13 +261,19 @@ impl Printer {
             ("price", fmt::money(c.price_cents, c.currency.as_deref())),
             ("price (usd)", fmt::money(c.usd_price_cents, Some("USD"))),
             ("created", fmt::datetime(c.created_at.as_deref())),
-            ("status updated", fmt::datetime(c.status_updated_at.as_deref())),
+            (
+                "status updated",
+                fmt::datetime(c.status_updated_at.as_deref()),
+            ),
         ];
         if let Some(campaign) = &c.campaign {
             rows.push(("campaign", fmt::text(campaign.name.as_deref())));
             rows.push((
                 "campaign budget",
-                fmt::money(campaign.budget_amount_cents, campaign.budget_currency.as_deref()),
+                fmt::money(
+                    campaign.budget_amount_cents,
+                    campaign.budget_currency.as_deref(),
+                ),
             ));
         }
         detail(&rows, self.color);
@@ -280,7 +304,11 @@ impl Printer {
                 state.push("blocked");
             }
             let unread = c.is_unread == Some(true);
-            let label = if state.is_empty() { "read".to_string() } else { state.join(", ") };
+            let label = if state.is_empty() {
+                "read".to_string()
+            } else {
+                state.join(", ")
+            };
 
             t.push(vec![
                 Cell::plain(fmt::text(c.id.as_deref())),
@@ -314,8 +342,18 @@ impl Printer {
             &[
                 ("id", fmt::text(c.id.as_deref())),
                 ("creator", fmt::text(c.creator_id.as_deref())),
-                ("state", if state.is_empty() { "read".into() } else { state.join(", ") }),
-                ("last activity", fmt::datetime(c.last_activity_at.as_deref())),
+                (
+                    "state",
+                    if state.is_empty() {
+                        "read".into()
+                    } else {
+                        state.join(", ")
+                    },
+                ),
+                (
+                    "last activity",
+                    fmt::datetime(c.last_activity_at.as_deref()),
+                ),
                 ("created", fmt::datetime(c.created_at.as_deref())),
             ],
             self.color,
@@ -405,14 +443,22 @@ fn join_labels(labels: &[Label]) -> String {
     if labels.is_empty() {
         return "-".into();
     }
-    labels.iter().filter_map(|l| l.name.clone()).collect::<Vec<_>>().join(", ")
+    labels
+        .iter()
+        .filter_map(|l| l.name.clone())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn join_channels(channels: &[Channel]) -> String {
     if channels.is_empty() {
         return "-".into();
     }
-    channels.iter().filter_map(|c| c.platform_type.clone()).collect::<Vec<_>>().join(", ")
+    channels
+        .iter()
+        .filter_map(|c| c.platform_type.clone())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// One line describing a timeline entry, chosen by which payload the type carries.
@@ -451,8 +497,11 @@ fn summarize(m: &Message) -> String {
         return fmt::strip_html(comment);
     }
     if !m.attachments.is_empty() {
-        let names: Vec<String> =
-            m.attachments.iter().filter_map(|a| a.file_name.clone()).collect();
+        let names: Vec<String> = m
+            .attachments
+            .iter()
+            .filter_map(|a| a.file_name.clone())
+            .collect();
         return names.join(", ");
     }
     "-".into()
@@ -470,27 +519,6 @@ fn humanize_key(key: &str) -> String {
         }
     }
     out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn humanizes_camel_case_keys() {
-        assert_eq!(humanize_key("conversationId"), "conversation id");
-        assert_eq!(humanize_key("id"), "id");
-    }
-
-    #[test]
-    fn summarizes_a_text_message() {
-        let m = Message {
-            text: Some("<p>Here is the draft</p>".into()),
-            attachments: vec![Attachment { file_name: Some("a.pdf".into()), ..Default::default() }],
-            ..Default::default()
-        };
-        assert_eq!(summarize(&m), "Here is the draft [1 attachment]");
-    }
 }
 
 impl Printer {
@@ -525,7 +553,11 @@ impl Printer {
                 println!("{method} {url}");
             }
 
-            for (name, value) in entry.get("headers").and_then(Value::as_object).into_iter().flatten()
+            for (name, value) in entry
+                .get("headers")
+                .and_then(Value::as_object)
+                .into_iter()
+                .flatten()
             {
                 let rendered = value.as_str().unwrap_or_default();
                 if self.color {
@@ -571,13 +603,21 @@ impl Printer {
                 body.insert("hint".into(), serde_json::json!(hint));
             }
             let doc = serde_json::json!({ "error": Value::Object(body) });
-            eprintln!("{}", serde_json::to_string_pretty(&doc).unwrap_or_else(|_| doc.to_string()));
+            eprintln!(
+                "{}",
+                serde_json::to_string_pretty(&doc).unwrap_or_else(|_| doc.to_string())
+            );
             return;
         }
 
         let status = err.status.map(|s| format!(" ({s})")).unwrap_or_default();
         if self.color {
-            eprintln!("{}error{}{status}: {}", table::RED, table::RESET, err.message);
+            eprintln!(
+                "{}error{}{status}: {}",
+                table::RED,
+                table::RESET,
+                err.message
+            );
         } else {
             eprintln!("error{status}: {}", err.message);
         }
@@ -588,5 +628,29 @@ impl Printer {
                 eprintln!("hint: {hint}");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn humanizes_camel_case_keys() {
+        assert_eq!(humanize_key("conversationId"), "conversation id");
+        assert_eq!(humanize_key("id"), "id");
+    }
+
+    #[test]
+    fn summarizes_a_text_message() {
+        let m = Message {
+            text: Some("<p>Here is the draft</p>".into()),
+            attachments: vec![Attachment {
+                file_name: Some("a.pdf".into()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        assert_eq!(summarize(&m), "Here is the draft [1 attachment]");
     }
 }

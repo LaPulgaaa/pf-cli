@@ -6,7 +6,9 @@ use chrono::{DateTime, Datelike, Local, NaiveDate};
 /// formatted string is lossy and anything downstream doing arithmetic wants the
 /// original.
 pub fn money(cents: Option<i64>, currency: Option<&str>) -> String {
-    let Some(cents) = cents else { return "-".into() };
+    let Some(cents) = cents else {
+        return "-".into();
+    };
     let code = currency.unwrap_or("").to_uppercase();
     let negative = cents < 0;
     let abs = cents.unsigned_abs();
@@ -34,7 +36,7 @@ pub fn thousands(n: u64) -> String {
     let digits = n.to_string();
     let mut out = String::with_capacity(digits.len() + digits.len() / 3);
     for (i, c) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);
@@ -169,7 +171,9 @@ pub fn parse_datetime_arg(s: &str) -> Result<String, String> {
     if NaiveDate::parse_from_str(s, "%Y-%m-%d").is_ok() || DateTime::parse_from_rfc3339(s).is_ok() {
         return Ok(s.to_string());
     }
-    Err(format!("expected YYYY-MM-DD or an ISO 8601 datetime, got `{s}`"))
+    Err(format!(
+        "expected YYYY-MM-DD or an ISO 8601 datetime, got `{s}`"
+    ))
 }
 
 #[cfg(test)]

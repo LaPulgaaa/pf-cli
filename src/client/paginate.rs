@@ -41,7 +41,9 @@ pub async fn collect(client: &Client, req: Request, paginate: bool) -> Result<Va
         }
 
         let pagination = page.get("pagination");
-        let has_more = pagination.and_then(|p| p.get("hasMore")).and_then(Value::as_bool);
+        let has_more = pagination
+            .and_then(|p| p.get("hasMore"))
+            .and_then(Value::as_bool);
         let next = pagination
             .and_then(|p| p.get("nextCursor"))
             .and_then(Value::as_str)
