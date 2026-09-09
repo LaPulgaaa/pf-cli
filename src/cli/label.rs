@@ -91,8 +91,13 @@ pub async fn resolve_ids(client: &Client, values: &[String]) -> Result<Vec<Strin
     Ok(resolved)
 }
 
-/// `clb_abc123` and friends -- a prefix, an underscore, then an opaque body.
+/// Label IDs come in two shapes: a bare UUID, and `clb_abc123` -- a prefix, an
+/// underscore, then an opaque body. Either is passed straight through; only a
+/// value matching neither is worth spending a catalog request to resolve.
 fn is_id_shaped(value: &str) -> bool {
+    if crate::output::fmt::is_uuid(value) {
+        return true;
+    }
     let Some((prefix, rest)) = value.split_once('_') else {
         return false;
     };
@@ -109,6 +114,7 @@ mod tests {
     #[test]
     fn tells_ids_from_names() {
         assert!(is_id_shaped("clb_abc123"));
+        assert!(is_id_shaped("5c54cbd4-dc5e-42c1-92a3-6b1435b8032b"));
         assert!(!is_id_shaped("High performer"));
         assert!(!is_id_shaped("Brand fit"));
         assert!(!is_id_shaped("clb_"));
