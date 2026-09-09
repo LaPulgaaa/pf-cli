@@ -6,5 +6,10 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # Wait before adopting a new release. Bumping the moment one is published
+    # would pull in a compromised version before anyone could yank it, which is
+    # the same risk the SHA pins exist to bound.
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "ci"
