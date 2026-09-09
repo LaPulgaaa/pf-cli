@@ -15,16 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Uploading SARIF to the security tab. Available now the repository is
+      # public; on a private one it needs GitHub Advanced Security.
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # Findings surface as inline annotations rather than SARIF in the
-      # security tab: code scanning needs GitHub Advanced Security, which is
-      # not available on a private repository. Swap both flags -- and grant
-      # `security-events: write` -- if this repo ever goes public.
+      # Findings land in the security tab as tracked alerts rather than as
+      # log lines that scroll away.
       - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
-        with:
-          advanced-security: false
-          annotations: true
