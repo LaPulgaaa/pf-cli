@@ -27,8 +27,9 @@ curl -sSfL https://github.com/LaPulgaaa/pf-cli/releases/latest/download/pf-x86_6
 sudo mv pf /usr/local/bin/
 ```
 
-Intel Macs use `pf-x86_64-apple-darwin.tar.gz`. Each release carries a
-`SHA256SUMS` file to check downloads against.
+Intel Macs use `pf-x86_64-apple-darwin.tar.gz`, and arm64 Linux
+`pf-aarch64-unknown-linux-gnu.tar.gz`. Every archive ships alongside a
+matching `.sha256` file to check the download against.
 
 From source, which needs Rust:
 
